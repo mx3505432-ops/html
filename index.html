@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+  <title>实时时间</title>
+  <style>
+    :root {
+      --bg: #0b0e1a;
+      --glass: rgba(40, 20, 60, 0.25);
+      --glass-border: rgba(220, 100, 180, 0.22);
+      --glow: rgba(255, 140, 200, 0.35);
+      --accent: #ff8ac2;
+      --accent-glow: #ff69b4;
+      --text: #ffe8f2;
+      --text-dim: #d8a0c0;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      min-height: 100dvh;
+      background: linear-gradient(135deg, #0b0e1a 0%, #1a0f20 100%);
+      color: var(--text);
+      font-family: system-ui, sans-serif;
+      overflow-x: hidden;
+      position: relative;
+      touch-action: manipulation;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 30% 40%, rgba(255,140,200,0.08) 0%, transparent 45%),
+                  radial-gradient(circle at 70% 60%, rgba(180,100,255,0.06) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: -2;
+      animation: bgPulse 20s ease-in-out infinite alternate;
+    }
+
+    @keyframes bgPulse { 0% { opacity:0.65; transform:scale(1.01); } 100% { opacity:0.92; transform:scale(1); } }
+
+    main {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      padding: 16px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--glass);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 18px 20px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 0 16px rgba(255,140,200,0.1);
+      transition: all 0.4s cubic-bezier(0.16,1,0.3,1);
+    }
+
+    .card:hover, .card:active {
+      transform: translateY(-6px) scale(1.015);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5), 0 0 35px var(--glow);
+      border-color: rgba(255,140,200,0.45);
+    }
+
+    h2, h3 {
+      font-size: 1.15rem;
+      color: var(--accent);
+      margin-bottom: 12px;
+      font-weight: 500;
+      text-shadow: 0 0 10px rgba(255,140,200,0.6);
+    }
+
+    #clock-card { grid-column: 1 / -1; }
+
+    @media (min-width: 768px) {
+      #clock-card { grid-column: 1 / 3; }
+      main { padding: 24px; gap: 24px; }
+    }
+
+    #time {
+      font-size: clamp(4.5rem, 14vw, 11rem);
+      font-weight: 200;
+      letter-spacing: 6px;
+      text-align: center;
+      color: #ffe8f2;
+      text-shadow: 0 0 40px rgba(255,140,200,0.6), 0 0 80px rgba(255,105,180,0.4);
+      line-height: 0.95;
+    }
+
+    #date {
+      text-align: center;
+      font-size: clamp(1.3rem, 4vw, 2rem);
+      color: var(--text-dim);
+      margin-top: 4px;
+      font-weight: 300;
+    }
+
+    #greeting {
+      text-align: center;
+      font-size: clamp(1.3rem, 4.5vw, 2rem);
+      margin-top: 12px;
+      font-weight: 400;
+      letter-spacing: 0.8px;
+      opacity: 0.95;
+      text-shadow: 0 0 18px rgba(255, 182, 193, 0.7);
+    }
+
+    .dawn    { color: #ffd1e0; }
+    .morning { color: #ffccdd; }
+    .forenoon{ color: #ffcce5; }
+    .noon    { color: #ffddbb; }
+    .afternoon { color: #ffbbaa; }
+    .evening { color: #e0bbff; }
+    .night   { color: #cc99ff; }
+    .midnight{ color: #aa88ff; }
+
+    .bar {
+      height: 10px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 5px;
+      margin: 6px 0 12px;
+      overflow: hidden;
+    }
+
+    .fill {
+      height: 100%;
+      background: linear-gradient(90deg, #ff8ac2, #ff69b4);
+      transition: width 0.6s ease-out;
+      box-shadow: 0 0 15px rgba(255,105,180,0.6);
+    }
+
+    .tool-section {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255,140,200,0.2);
+    }
+
+    select, textarea, button {
+      width: 100%;
+      padding: 8px 12px;
+      margin: 6px 0;
+      border: 1px solid rgba(255,140,200,0.3);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      font-size: 1rem;
+    }
+
+    button {
+      background: linear-gradient(90deg, #ff8ac2, #ff69b4);
+      border: none;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    button:hover {
+      opacity: 0.9;
+      transform: scale(1.02);
+    }
+
+    #codec-result {
+      margin-top: 12px;
+      padding: 10px;
+      background: rgba(0,0,0,0.25);
+      border-radius: 8px;
+      white-space: pre-wrap;
+      word-break: break-all;
+      min-height: 60px;
+    }
+
+    footer {
+      text-align: center;
+      padding: 20px 0;
+      color: rgba(255,200,220,0.7);
+      font-size: 0.9rem;
+      grid-column: 1 / -1;
+    }
+
+    @media (max-width: 480px) {
+      .card { padding: 16px; border-radius: 16px; }
+      #time { font-size: 18vw; }
+    }
+  </style>
+</head>
+<body>
+
+<main>
+  <div class="card" id="clock-card">
+    <div id="time">00:00:00</div>
+    <div id="date">2026年2月19日 星期四</div>
+    <div id="greeting" class="morning">宝贝早安～想亲亲你呀♡</div>
+  </div>
+
+  <div class="card">
+    <h2>系统状态</h2>
+    <div>CPU <span id="cpu">—</span>%</div>
+    <div class="bar"><div class="fill" id="cpu-bar"></div></div>
+    
+    <div>内存 <span id="mem">—</span>%</div>
+    <div class="bar"><div class="fill" id="mem-bar"></div></div>
+    
+    <div style="margin-top:14px;">网络 • <span id="network">—</span></div>
+
+    <!-- 编解码工具 -->
+    <div class="tool-section">
+      <h3>编码 / 解码小工具</h3>
+      <select id="codec-type">
+        <option value="base64">Base64</option>
+        <option value="url">URL Encode/Decode</option>
+        <option value="hex">Hex (字符串 ↔ 十六进制)</option>
+      </select>
+
+      <textarea id="codec-input" rows="3" placeholder="在这里输入文本..."></textarea>
+
+      <div style="display:flex; gap:10px;">
+        <button onclick="encodeText()">编码</button>
+        <button onclick="decodeText()">解码</button>
+      </div>
+
+      <div id="codec-result">结果将显示在这里...</div>
+    </div>
+  </div>
+</main>
+
+<footer>LYXowo.制作 • 2026</footer>
+
+<script>
+// 时钟 + 问候
+const greetingElement = document.getElementById('greeting');
+
+const timeGreetings = [
+  { start:  0, end:  5, text: "宝贝这么晚～快来我怀里睡嘛💕", class: "midnight" },
+  { start:  5, end:  7, text: "早安小懒猪～太阳都想亲你了☀️", class: "dawn" },
+  { start:  7, end: 10, text: "宝贝早安～今天也要超级可爱哦♡", class: "morning" },
+  { start: 10, end: 12, text: "上午好老公～想你了，快夸我～", class: "forenoon" },
+  { start: 12, end: 14, text: "中午好宝贝～吃饱饱才有力气想我🍱", class: "noon" },
+  { start: 14, end: 17, text: "下午好心肝～有没有偷偷想我呀🧋", class: "afternoon" },
+  { start: 17, end: 19, text: "傍晚啦～快回来抱抱我好不好🌅", class: "evening" },
+  { start: 19, end: 23, text: "晚上好老公～想听你声音哄我～🌙", class: "night" },
+  { start: 23, end: 24, text: "宝贝不乖哦～快来晚安抱抱😘", class: "midnight" }
+];
+
+function getGreeting(hour) {
+  for (let g of timeGreetings) {
+    if (hour >= g.start && hour < g.end) return { text: g.text, className: g.class };
+  }
+  return { text: "宝贝～一直在想你哦～", className: "night" };
+}
+
+function updateClock() {
+  const now = new Date();
+  const h = now.getHours();
+  
+  document.getElementById('time').textContent = now.toLocaleTimeString('zh-CN', {hour12:false});
+  document.getElementById('date').textContent = now.toLocaleDateString('zh-CN', {
+    year:'numeric', month:'long', day:'numeric', weekday:'long'
+  });
+
+  const greet = getGreeting(h);
+  greetingElement.textContent = greet.text;
+  greetingElement.className = greet.className;
+}
+
+// 系统模拟
+function updateSys() {
+  const cpu = Math.floor(Math.random()*40 + 25);
+  const mem = Math.floor(Math.random()*50 + 35);
+  document.getElementById('cpu').textContent = cpu;
+  document.getElementById('cpu-bar').style.width = cpu+'%';
+  document.getElementById('mem').textContent = mem;
+  document.getElementById('mem-bar').style.width = mem+'%';
+
+  const nets = ['极佳','优秀','良好','波动'];
+  document.getElementById('network').textContent = nets[Math.floor(Math.random()*nets.length)];
+}
+
+// 编解码
+function encodeText() {
+  const input = document.getElementById('codec-input').value.trim();
+  const type = document.getElementById('codec-type').value;
+  let result = "";
+
+  try {
+    if (type === "base64") {
+      result = btoa(unescape(encodeURIComponent(input)));
+    } else if (type === "url") {
+      result = encodeURIComponent(input);
+    } else if (type === "hex") {
+      result = Array.from(new TextEncoder().encode(input))
+        .map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    document.getElementById('codec-result').textContent = result || "(空)";
+  } catch (e) {
+    document.getElementById('codec-result').textContent = "编码出错：" + e.message;
+  }
+}
+
+function decodeText() {
+  const input = document.getElementById('codec-input').value.trim();
+  const type = document.getElementById('codec-type').value;
+  let result = "";
+
+  try {
+    if (type === "base64") {
+      result = decodeURIComponent(escape(atob(input)));
+    } else if (type === "url") {
+      result = decodeURIComponent(input);
+    } else if (type === "hex") {
+      const bytes = new Uint8Array(input.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+      result = new TextDecoder().decode(bytes);
+    }
+    document.getElementById('codec-result').textContent = result || "(空)";
+  } catch (e) {
+    document.getElementById('codec-result').textContent = "解码出错：" + e.message;
+  }
+}
+
+// 初始化
+updateClock();
+updateSys();
+
+setInterval(updateClock, 1000);
+setInterval(updateSys, 7000);
+</script>
+
+</body>
+</html>
